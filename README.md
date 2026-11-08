@@ -71,7 +71,18 @@ claude mcp add idoklad \
 </details>
 
 <details>
-<summary><b>Claude Desktop</b></summary>
+<summary><b>Claude Desktop (one-click install)</b></summary>
+
+1. Download the latest `idoklad-mcp-<version>.mcpb` from [Releases](https://github.com/honzsik/idoklad-mcp/releases/latest).
+2. Double-click the file, or drag it into **Claude Desktop → Settings → Extensions**.
+3. Click **Install**, then fill in your Client ID, Client Secret and Application ID.
+
+The extension is read-only by default. You can switch that off in its settings.
+
+</details>
+
+<details>
+<summary><b>Claude Desktop (manual config)</b></summary>
 
 Open **Settings → Developer → Edit Config** and add:
 
@@ -209,7 +220,7 @@ Write tools are marked as such, so clients can ask you to confirm before running
 - [x] PDF download and sending documents by email
 - [x] Generic tools: call any iDoklad endpoint, search the API docs
 - [x] Create proforma invoices and credit notes, and invoices from paid proformas
-- [ ] One-click install for Claude Desktop, and a listing in the MCP Registry
+- [x] One-click install for Claude Desktop, and a listing in the MCP Registry
 - [ ] Hosted version with iDoklad login (OAuth) for claude.ai and ChatGPT
 
 Ideas and requests are welcome in [issues](https://github.com/honzsik/idoklad-mcp/issues).
@@ -231,6 +242,7 @@ cp .env.example .env   # add your credentials
 | `npm run inspect` | Opens the tools in [MCP Inspector](https://github.com/modelcontextprotocol/inspector) |
 | `npm run build` | Compiles to `dist/` |
 | `npm run build:api-index` | Refreshes the bundled API reference from iDoklad's docs |
+| `npm run build:mcpb` | Builds the Claude Desktop extension (`idoklad-mcp-<version>.mcpb`) |
 
 If you open this folder in Claude Code, it picks up [`.mcp.json`](.mcp.json) and runs the server from source as `idoklad-dev`.
 
@@ -247,7 +259,7 @@ Pull requests are welcome. Please run `npm run typecheck && npm test` before ope
 
 ### Releasing
 
-Releases are published to npm by GitHub Actions ([`release.yml`](.github/workflows/release.yml)) when a version tag is pushed:
+Pushing a version tag runs [`release.yml`](.github/workflows/release.yml). It publishes to npm, creates a GitHub release with the Claude Desktop extension attached, and publishes to the [MCP Registry](https://registry.modelcontextprotocol.io):
 
 ```bash
 npm version minor        # or patch / major: updates package.json and creates a tag

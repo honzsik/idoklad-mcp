@@ -1,8 +1,12 @@
 name: Release
 
-# Publishes to npm when you push a version tag, e.g. `npm version minor && git push --follow-tags`.
-# Uses npm trusted publishing (no npm token stored in GitHub). One-time setup on npmjs.com:
-# package Settings → Trusted publishing → GitHub Actions, repo honzsik/idoklad-mcp, workflow release.yml.
+# Runs when you push a version tag, e.g. `npm version minor && git push --follow-tags`. It:
+#   1. publishes the package to npm (trusted publishing, no npm token stored in GitHub),
+#   2. creates a GitHub release with the Claude Desktop bundle (.mcpb) attached,
+#   3. publishes the server to the official MCP Registry.
+#
+# One-time setup on npmjs.com: package Settings → Trusted publishing → GitHub Actions,
+# repository honzsik/idoklad-mcp, workflow release.yml.
 
 on:
   push:
@@ -12,24 +16,59 @@ permissions:
   contents: write
   id-token: write
 
+env:
+  MCP_PUBLISHER_VERSION: v1.8.8
+
 jobs:
-  publish:
+  release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
           cache: npm
       - run: npm ci
+
       - name: Check tag matches package.json version
         run: test "v$(node -p 'require("./package.json").version')" = "$GITHUB_REF_NAME"
+
       - run: npm run typecheck
       - run: npm test
+
+      # 1. npm
       - run: npm run build
       - run: npm publish --access public
+
+      # 2. GitHub release with the Claude Desktop bundle
+      - name: Build Claude Desktop bundle
+        run: npm run build:mcpb
       - name: Create GitHub release
-        run: gh release create "$GITHUB_REF_NAME" --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" idoklad-mcp-*.mcpb --generate-notes
         env:
           GH_TOKEN: ${{ github.token }}
+
+      # 3. MCP Registry
+      - name: Write server.json
+        run: npx tsx scripts/server-json.ts idoklad-mcp-*.mcpb
+      - name: Install cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+      - name: Download and verify mcp-publisher
+        run: |
+          set -euo pipefail
+          archive="mcp-publisher_linux_amd64.tar.gz"
+          base_url="https://github.com/modelcontextprotocol/registry/releases/download/${MCP_PUBLISHER_VERSION}"
+          curl --fail --location --silent --show-error --output "$archive" "$base_url/$archive"
+          curl --fail --location --silent --show-error --output "$archive.sigstore.json" "$base_url/$archive.sigstore.json"
+          cosign verify-blob \
+            --bundle "$archive.sigstore.json" \
+            --certificate-identity "https://github.com/modelcontextprotocol/registry/.github/workflows/release.yml@refs/tags/${MCP_PUBLISHER_VERSION}" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            "$archive"
+          tar xzf "$archive" mcp-publisher
+          rm -f "$archive" "$archive.sigstore.json"
+      - name: Publish to MCP Registry
+        run: |
+          ./mcp-publisher login github-oidc
+          ./mcp-publisher publish

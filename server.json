@@ -1,0 +1,49 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.honzsik/idoklad-mcp",
+  "title": "iDoklad",
+  "description": "Unofficial iDoklad invoicing: read and create invoices, proformas, credit notes and contacts.",
+  "version": "0.2.0",
+  "repository": {
+    "url": "https://github.com/honzsik/idoklad-mcp",
+    "source": "github"
+  },
+  "websiteUrl": "https://github.com/honzsik/idoklad-mcp#readme",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "idoklad-mcp",
+      "version": "0.2.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "IDOKLAD_CLIENT_ID",
+          "description": "Client ID from iDoklad → Settings → API",
+          "isRequired": true
+        },
+        {
+          "name": "IDOKLAD_CLIENT_SECRET",
+          "description": "Client Secret from iDoklad → Settings → API",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "IDOKLAD_APPLICATION_ID",
+          "description": "Client Id of a ClientCredentials app on developer.idoklad.cz",
+          "isRequired": true
+        },
+        {
+          "name": "IDOKLAD_READ_ONLY",
+          "description": "Set to false to enable tools that create or change data (default true)"
+        },
+        {
+          "name": "IDOKLAD_DOWNLOAD_DIR",
+          "description": "Folder for downloaded PDFs (default ~/Downloads)"
+        }
+      ]
+    }
+  ]
+}

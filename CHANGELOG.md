@@ -6,6 +6,8 @@
 - `create_invoice_from_proforma`: create the final invoice from a paid proforma (vyúčtování zálohy).
 - `create_credit_note`: credit a whole invoice or selected items, optionally settled against the invoice.
 - **Breaking:** `create_issued_invoice` input `copyFromInvoiceId` is renamed to `copyFromId`.
+- One-click install for Claude Desktop: each GitHub release includes an `idoklad-mcp-<version>.mcpb` extension.
+- Listed in the official MCP Registry as `io.github.honzsik/idoklad-mcp`.
 
 ## 0.2.0 (2026-11-08)
 

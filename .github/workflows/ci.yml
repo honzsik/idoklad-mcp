@@ -21,3 +21,5 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      - name: Build Claude Desktop bundle
+        run: npm run build:mcpb

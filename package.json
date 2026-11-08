@@ -34,7 +34,8 @@
     "typecheck": "tsc --noEmit",
     "inspect": "npx @modelcontextprotocol/inspector tsx src/index.ts",
     "prepublishOnly": "npm run build && npm test",
-    "build:api-index": "tsx scripts/build-api-index.ts"
+    "build:api-index": "tsx scripts/build-api-index.ts",
+    "build:mcpb": "npm run build && tsx scripts/build-mcpb.ts"
   },
   "keywords": [
     "mcp",
@@ -50,6 +51,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@anthropic-ai/mcpb": "^2.1.2",
     "@types/node": "^26.6.6",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",

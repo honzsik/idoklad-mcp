@@ -6,3 +6,5 @@ coverage
 
 # Private notes (not published)
 .notes
+build
+*.mcpb
