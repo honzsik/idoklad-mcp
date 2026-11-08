@@ -1,0 +1,57 @@
+{
+  "name": "idoklad-mcp",
+  "version": "0.1.0",
+  "description": "Unofficial MCP server for the iDoklad invoicing API (v3). Use iDoklad from Claude, Codex, Cursor and other AI agents.",
+  "author": "Jan Vítek <info@vitekjan.cz>",
+  "homepage": "https://github.com/honzsik/idoklad-mcp#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/honzsik/idoklad-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/honzsik/idoklad-mcp/issues"
+  },
+  "mcpName": "io.github.honzsik/idoklad-mcp",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "idoklad-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsx src/index.ts",
+    "test": "vitest run",
+    "test:live": "IDOKLAD_LIVE_TESTS=1 vitest run test/live",
+    "smoke": "tsx scripts/smoke.ts",
+    "typecheck": "tsc --noEmit",
+    "inspect": "npx @modelcontextprotocol/inspector tsx src/index.ts",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "idoklad",
+    "invoice",
+    "faktura",
+    "claude",
+    "codex"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  }
+}
