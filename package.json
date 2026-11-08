@@ -47,11 +47,12 @@
     "codex"
   ],
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.32.2",
-    "zod": "^4.6.7"
+    "zod": "^4.6.7",
+    "@modelcontextprotocol/server": "^2.4.0"
   },
   "devDependencies": {
     "@anthropic-ai/mcpb": "^2.1.2",
+    "@modelcontextprotocol/client": "^2.4.0",
     "@types/node": "^26.6.6",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",

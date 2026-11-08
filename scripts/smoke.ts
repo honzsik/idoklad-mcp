@@ -1,6 +1,6 @@
 // Read-only smoke test: starts the server like an AI client would and calls every read tool once.
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
+import { Client } from "@modelcontextprotocol/client";
 import { tmpdir } from "node:os";
 
 const transport = new StdioClientTransport({
@@ -9,8 +9,10 @@ const transport = new StdioClientTransport({
   cwd: process.cwd(),
   env: { ...process.env, IDOKLAD_READ_ONLY: "true", IDOKLAD_DOWNLOAD_DIR: tmpdir() } as Record<string, string>,
 });
-const client = new Client({ name: "smoke", version: "1" });
+// "auto" negotiates the newest protocol the server supports (2026-07-28 at the time of writing).
+const client = new Client({ name: "smoke", version: "1" }, { versionNegotiation: { mode: "auto" } });
 await client.connect(transport);
+console.log("protocol:", client.getNegotiatedProtocolVersion());
 
 let failures = 0;
 async function check(name: string, args: Record<string, unknown> = {}) {

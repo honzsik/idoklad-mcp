@@ -40,7 +40,7 @@ export function registerDocumentTools(ctx: ToolContext) {
         description:
           `List ${doc.label} documents, newest first. Filter by payment status, overdue, ${partnerWord}, issue date range or document number. ` +
           `Returns a compact summary per document; use ${names.get} for full detail.`,
-        inputSchema: {
+        inputSchema: z.object({
           status: z.enum(["unpaid", "paid", "partially_paid", "overdue"]).optional().describe("Payment status. 'overdue' = unpaid and past due date."),
           partnerId: z.number().int().optional().describe(`Contact ID of the ${partnerWord} (see list_contacts).`),
           issuedFrom: date.optional().describe("Issue date from (inclusive)."),
@@ -48,7 +48,7 @@ export function registerDocumentTools(ctx: ToolContext) {
           documentNumber: z.string().optional().describe("Part of the document number."),
           page: z.number().int().min(1).default(1),
           pageSize: z.number().int().min(1).max(200).default(20),
-        },
+        }),
         annotations: READ,
       },
       (args) =>
@@ -80,7 +80,7 @@ export function registerDocumentTools(ctx: ToolContext) {
       {
         title: `Get ${doc.label.split(" (")[0]}`,
         description: `Get full detail of one ${doc.label} by ID, including items, partner and prices.`,
-        inputSchema: { id: z.number().int().describe("Document ID (not the document number).") },
+        inputSchema: z.object({ id: z.number().int().describe("Document ID (not the document number).") }),
         annotations: READ,
       },
       ({ id }) => run(() => client.get<Document>(`${doc.path}/${id}`)),
@@ -93,12 +93,12 @@ export function registerDocumentTools(ctx: ToolContext) {
       title: "Download document PDF",
       description:
         "Download the PDF of an invoice, proforma, credit note or received invoice and save it to a local folder. Returns the file path.",
-      inputSchema: {
+      inputSchema: z.object({
         documentType: z.enum(DOC_TYPE_KEYS),
         id: z.number().int().describe("Document ID."),
         language: z.enum(["cs", "sk", "en", "de"]).optional().describe("PDF language. Default: the document's own language."),
         withPayments: z.boolean().default(false).describe("Include the payment summary (not for received invoices)."),
-      },
+      }),
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     },
     (args) =>
@@ -129,7 +129,7 @@ export function registerDocumentTools(ctx: ToolContext) {
       description:
         "Email an issued invoice, proforma or credit note through iDoklad, using the email template from iDoklad settings. " +
         "This sends a real email; always confirm the recipients with the user first.",
-      inputSchema: {
+      inputSchema: z.object({
         documentType: z.enum(["issued_invoice", "proforma_invoice", "credit_note"]),
         id: z.number().int().describe("Document ID."),
         sendToPartner: z.boolean().default(true).describe("Send to the email on the customer's contact."),
@@ -139,7 +139,7 @@ export function registerDocumentTools(ctx: ToolContext) {
         subject: z.string().optional().describe("Custom subject. Default: iDoklad template."),
         body: z.string().optional().describe("Custom body. Default: iDoklad template."),
         language: z.enum(["cs", "sk", "en", "de"]).optional(),
-      },
+      }),
       annotations: { ...WRITE, destructiveHint: true },
     },
     (args) =>
@@ -166,11 +166,11 @@ export function registerDocumentTools(ctx: ToolContext) {
     {
       title: "Mark document as paid",
       description: "Record full payment of an issued invoice, proforma or received invoice (uhrazeno) on a given date.",
-      inputSchema: {
+      inputSchema: z.object({
         documentType: z.enum(payable),
         id: z.number().int().describe("Document ID."),
         dateOfPayment: date.optional().describe("Default: today."),
-      },
+      }),
       annotations: WRITE,
     },
     (args) =>
@@ -186,7 +186,7 @@ export function registerDocumentTools(ctx: ToolContext) {
     {
       title: "Mark document as unpaid",
       description: "Remove all payments from an issued invoice, proforma or received invoice, so it is unpaid again.",
-      inputSchema: { documentType: z.enum(payable), id: z.number().int().describe("Document ID.") },
+      inputSchema: z.object({ documentType: z.enum(payable), id: z.number().int().describe("Document ID.") }),
       annotations: { ...WRITE, destructiveHint: true },
     },
     (args) =>

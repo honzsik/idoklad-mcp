@@ -49,14 +49,14 @@ export function registerContactTools(ctx: ToolContext) {
     {
       title: "List contacts",
       description: "Search contacts (kontakty: customers and suppliers) by company name, IČO, DIČ or email. Without filters, lists all contacts.",
-      inputSchema: {
+      inputSchema: z.object({
         name: z.string().optional().describe("Part of the company name."),
         ico: z.string().optional().describe("Company ID (IČO)."),
         dic: z.string().optional().describe("VAT ID (DIČ)."),
         email: z.string().optional().describe("Part of the email address."),
         page: z.number().int().min(1).default(1),
         pageSize: z.number().int().min(1).max(200).default(20),
-      },
+      }),
       annotations: READ,
     },
     (args) =>
@@ -81,7 +81,7 @@ export function registerContactTools(ctx: ToolContext) {
     {
       title: "Get contact",
       description: "Get full detail of one contact by ID: address, IČO, DIČ, bank account, default due days.",
-      inputSchema: { id: z.number().int() },
+      inputSchema: z.object({ id: z.number().int() }),
       annotations: READ,
     },
     ({ id }) => run(() => client.get<Contact>(`Contacts/${id}`)),
@@ -92,12 +92,12 @@ export function registerContactTools(ctx: ToolContext) {
     {
       title: "List price list items",
       description: "Search the price list (ceník) by item name or code. Use the prices when creating invoices.",
-      inputSchema: {
+      inputSchema: z.object({
         name: z.string().optional().describe("Part of the item name."),
         code: z.string().optional().describe("Part of the item code."),
         page: z.number().int().min(1).default(1),
         pageSize: z.number().int().min(1).max(200).default(20),
-      },
+      }),
       annotations: READ,
     },
     (args) =>
@@ -134,7 +134,7 @@ export function registerContactTools(ctx: ToolContext) {
     {
       title: "Create contact",
       description: "Create a new contact (customer or supplier). Confirm the details with the user before creating.",
-      inputSchema: {
+      inputSchema: z.object({
         companyName: z.string().min(1).max(200),
         ico: z.string().max(20).optional().describe("Company ID (IČO)."),
         dic: z.string().max(20).optional().describe("VAT ID (DIČ), e.g. CZ12345678."),
@@ -148,7 +148,7 @@ export function registerContactTools(ctx: ToolContext) {
         surname: z.string().max(50).optional(),
         defaultDueDays: z.number().int().min(0).optional().describe("Default invoice due period for this contact."),
         note: z.string().optional(),
-      },
+      }),
       annotations: WRITE,
     },
     (args) =>

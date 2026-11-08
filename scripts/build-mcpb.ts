@@ -2,8 +2,7 @@
 // Run after `npm run build`: npm run build:mcpb  →  idoklad-mcp-<version>.mcpb
 import { execFileSync } from "node:child_process";
 import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { IdokladClient } from "../src/client.js";
 import { createServer } from "../src/server.js";
 

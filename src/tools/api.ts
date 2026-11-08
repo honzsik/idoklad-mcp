@@ -55,7 +55,7 @@ export function registerApiTools(ctx: ToolContext) {
       description:
         "Get an iDoklad codebook (číselník) or company setting list: currencies, countries, VAT rates (current only), VAT codes, " +
         "payment options, your bank accounts, numeric sequences, constant symbols or tags. Use it to translate IDs in documents.",
-      inputSchema: { codebook: z.enum(Object.keys(CODEBOOKS) as [keyof typeof CODEBOOKS, ...(keyof typeof CODEBOOKS)[]]) },
+      inputSchema: z.object({ codebook: z.enum(Object.keys(CODEBOOKS) as [keyof typeof CODEBOOKS, ...(keyof typeof CODEBOOKS)[]]) }),
       annotations: READ,
     },
     ({ codebook }) =>
@@ -78,10 +78,10 @@ export function registerApiTools(ctx: ToolContext) {
         "Search the iDoklad API v3 reference for endpoints not covered by other tools (bank statements, cash vouchers, " +
         "recurring invoices, sales orders, stock, webhooks…). Returns method, path, parameters (* = required). " +
         "Then call idoklad_api_request.",
-      inputSchema: {
+      inputSchema: z.object({
         query: z.string().min(2).describe("Keywords in English, e.g. 'bank statement list' or 'recurring invoice'."),
         limit: z.number().int().min(1).max(20).default(8),
-      },
+      }),
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
     ({ query, limit }) =>
@@ -103,12 +103,12 @@ export function registerApiTools(ctx: ToolContext) {
         (ctx.readOnly
           ? "Read-only mode: only GET is allowed."
           : "Prefer the dedicated tools when one exists, and confirm any change with the user before calling POST, PUT, PATCH or DELETE."),
-      inputSchema: {
+      inputSchema: z.object({
         method: z.enum(methods),
         path: z.string().min(1).describe("Endpoint path after /v3/, e.g. 'IssuedInvoices/123'."),
         query: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
         body: z.unknown().optional().describe("JSON body for POST, PUT, PATCH."),
-      },
+      }),
       annotations: ctx.readOnly ? READ : { ...WRITE, destructiveHint: true },
     },
     (args) =>

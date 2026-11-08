@@ -52,7 +52,7 @@ export function registerInvoiceTools(ctx: ToolContext) {
           "to reuse its currency, VAT treatment, language and payment method; only the items and dates change. " +
           "Identify the customer by partnerId, or by partnerName which must match exactly one contact. " +
           "Confirm the details with the user before creating.",
-        inputSchema: {
+        inputSchema: z.object({
           partnerId: z.number().int().optional().describe("Contact ID of the customer."),
           partnerName: z.string().optional().describe("Customer company name (searched in contacts) if partnerId is unknown."),
           copyFromId: z.number().int().optional().describe(`ID of an earlier ${doc.label.split(" (")[0]} to copy settings from.`),
@@ -65,7 +65,7 @@ export function registerInvoiceTools(ctx: ToolContext) {
           note: z.string().optional(),
           orderNumber: z.string().max(25).optional(),
           variableSymbol: z.string().max(10).optional().describe("Default: generated from the document number."),
-        },
+        }),
         annotations: WRITE,
       },
       (args) =>
@@ -122,7 +122,7 @@ export function registerInvoiceTools(ctx: ToolContext) {
         "Create a credit note (opravný daňový doklad / dobropis) for an issued invoice. Without items it credits the whole invoice; " +
         "with items it credits only those (give positive prices; they are entered as negative). " +
         "With offset=true the credit note is settled against the invoice right away. Confirm with the user before creating.",
-      inputSchema: {
+      inputSchema: z.object({
         invoiceId: z.number().int().describe("ID of the issued invoice to credit."),
         reason: z.string().min(1).describe("Reason for the credit note (důvod opravy), shown on the document."),
         items: z.array(itemSchema).min(1).optional().describe("Items to credit. Default: all items of the invoice."),
@@ -130,7 +130,7 @@ export function registerInvoiceTools(ctx: ToolContext) {
         dateOfIssue: date.optional().describe("Default: today."),
         description: z.string().optional(),
         note: z.string().optional(),
-      },
+      }),
       annotations: WRITE,
     },
     (args) =>
@@ -162,7 +162,7 @@ export function registerInvoiceTools(ctx: ToolContext) {
       description:
         "Create the final issued invoice (vyúčtování zálohy) from a fully paid proforma invoice. " +
         "The proforma must be paid first (see mark_document_paid). Confirm with the user before creating.",
-      inputSchema: { proformaId: z.number().int().describe("ID of the paid proforma invoice.") },
+      inputSchema: z.object({ proformaId: z.number().int().describe("ID of the paid proforma invoice.") }),
       annotations: WRITE,
     },
     ({ proformaId }) =>

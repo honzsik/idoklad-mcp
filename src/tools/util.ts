@@ -1,4 +1,4 @@
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult } from "@modelcontextprotocol/server";
 
 /** Runs a tool body and turns its result (or error) into an MCP tool response. */
 export async function run(fn: () => Promise<unknown>): Promise<CallToolResult> {

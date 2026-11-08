@@ -8,6 +8,8 @@
 - **Breaking:** `create_issued_invoice` input `copyFromInvoiceId` is renamed to `copyFromId`.
 - One-click install for Claude Desktop: each GitHub release includes an `idoklad-mcp-<version>.mcpb` extension.
 - Listed in the official MCP Registry as `io.github.honzsik/idoklad-mcp`.
+- Upgraded to MCP TypeScript SDK v2 (`@modelcontextprotocol/server`). The server now speaks the 2026-07-28 protocol as well as the older 2025 versions, so new and existing clients both work.
+- Much smaller install: two runtime dependencies instead of dozens, and the Claude Desktop extension shrank from 3.8 MB to 2.3 MB.
 
 ## 0.2.0 (2026-11-08)
 

@@ -1,7 +1,6 @@
 import { readFile, rm } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { IdokladClient } from "../src/client.js";
 import { createServer } from "../src/server.js";
 import { fakeFetch, ok, testConfig, type Call } from "./helpers.js";

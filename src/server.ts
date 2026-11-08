@@ -1,5 +1,5 @@
 import { createRequire } from "node:module";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/server";
 import type { IdokladClient } from "./client.js";
 import { Codebooks } from "./codebooks.js";
 import type { Config } from "./config.js";
