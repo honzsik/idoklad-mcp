@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.3.0 (unreleased)
+## 0.3.0 (2026-11-09)
 
 - `create_proforma_invoice`: create proforma invoices, from defaults or copied from an earlier proforma.
 - `create_invoice_from_proforma`: create the final invoice from a paid proforma (vyúčtování zálohy).
@@ -10,6 +10,7 @@
 - Listed in the official MCP Registry as `io.github.honzsik/idoklad-mcp`.
 - Upgraded to MCP TypeScript SDK v2 (`@modelcontextprotocol/server`). The server now speaks the 2026-07-28 protocol as well as the older 2025 versions, so new and existing clients both work.
 - Much smaller install: two runtime dependencies instead of dozens, and the Claude Desktop extension shrank from 3.8 MB to 2.3 MB.
+- Development: `npm run evals` checks that Claude picks the right tools for 30 Czech and English requests.
 
 ## 0.2.0 (2026-11-08)
 

@@ -11,7 +11,7 @@ It lets Claude, Codex, Cursor and other AI assistants read and create invoices i
 > 🇨🇿 [Návod v češtině](#česky)
 
 > [!WARNING]
-> **Early development (v0.2).** Tools and their inputs may still change. See the [roadmap](#roadmap).
+> **Early development (v0.3).** Tools and their inputs may still change. See the [roadmap](#roadmap).
 
 ## What you can ask
 
@@ -239,10 +239,23 @@ cp .env.example .env   # add your credentials
 | `npm test` | Unit tests against a fake API, with no network calls |
 | `npm run test:live` | Read-only checks against your real iDoklad account (uses `.env`) |
 | `npm run smoke` | Calls the read tools through a real MCP connection |
+| `npm run evals` | Checks that Claude picks the right tools for 30 Czech and English requests (see below) |
 | `npm run inspect` | Opens the tools in [MCP Inspector](https://github.com/modelcontextprotocol/inspector) |
 | `npm run build` | Compiles to `dist/` |
 | `npm run build:api-index` | Refreshes the bundled API reference from iDoklad's docs |
 | `npm run build:mcpb` | Builds the Claude Desktop extension (`idoklad-mcp-<version>.mcpb`) |
+
+### Evals
+
+[`evals/`](evals) checks whether Claude picks the right tool, with the right inputs, for real requests such as *"Které faktury jsou po splatnosti?"* or *"Invoice Globex like last time, but for 42 hours"*. Each case runs as a short conversation against a made-up iDoklad company, so no real data is touched. It also checks that Claude doesn't send emails or change documents unless asked.
+
+```bash
+npm run evals                                  # all cases
+npm run evals -- --only overdue-cs,mark-paid-cs
+npm run evals -- --repeat 3                    # models vary; run each case 3 times
+```
+
+It needs `ANTHROPIC_API_KEY` in `.env` from an account at [console.anthropic.com](https://console.anthropic.com) with prepaid API credit. A Claude subscription doesn't include API credit. Each full run costs roughly $1–2. Run it after changing tool names, descriptions or inputs.
 
 If you open this folder in Claude Code, it picks up [`.mcp.json`](.mcp.json) and runs the server from source as `idoklad-dev`.
 

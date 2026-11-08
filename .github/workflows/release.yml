@@ -39,7 +39,10 @@ jobs:
 
       # 1. npm
       - run: npm run build
-      - run: npm publish --access public
+      - name: Publish to npm (skipped if this version is already on npm)
+        run: |
+          v="$(node -p 'require("./package.json").version')"
+          if npm view "idoklad-mcp@$v" version >/dev/null 2>&1; then echo "idoklad-mcp@$v already published"; else npm publish --access public; fi
 
       # 2. GitHub release with the Claude Desktop bundle
       - name: Build Claude Desktop bundle
