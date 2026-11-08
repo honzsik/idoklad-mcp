@@ -1,6 +1,19 @@
 # Changelog
 
-## 0.1.0 (unreleased)
+## 0.2.0 (2026-11-08)
+
+- New document types: proforma invoices, credit notes and received invoices (list and detail).
+- `get_document_pdf`: saves a document's PDF to your Downloads folder (`IDOKLAD_DOWNLOAD_DIR`).
+- `create_issued_invoice`: choose the currency (the exchange rate is filled in automatically) and language, and copy settings from a previous invoice with `copyFromInvoiceId`. Items keep the template's VAT rate unless you set one.
+- `mark_document_paid` and `mark_document_unpaid`.
+- `send_document_email`: email invoices, proformas and credit notes through iDoklad.
+- Contacts: `list_contacts`, `get_contact`, `create_contact`. Price list: `list_price_list_items`.
+- `get_codebook` for currencies, countries, VAT rates, payment options, bank accounts and more.
+- `search_api_docs` and `idoklad_api_request` for any other endpoint. Only GET is allowed in read-only mode.
+- `list_issued_invoices` now returns `documents` instead of `invoices`, and `currency` codes instead of IDs.
+- Node.js 22 or newer is required.
+
+## 0.1.0 (2026-11-08, not published)
 
 - First version.
 - Tools: `list_issued_invoices`, `get_issued_invoice`, `create_issued_invoice`.

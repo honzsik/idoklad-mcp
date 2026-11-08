@@ -54,8 +54,8 @@ export class IdokladClient {
   patch<T>(path: string, body: unknown) {
     return this.request<T>("PATCH", path, { body });
   }
-  put<T>(path: string, body?: unknown) {
-    return this.request<T>("PUT", path, { body });
+  put<T>(path: string, body?: unknown, query?: Query) {
+    return this.request<T>("PUT", path, { body, query });
   }
   delete<T>(path: string) {
     return this.request<T>("DELETE", path);

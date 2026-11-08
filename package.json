@@ -1,6 +1,6 @@
 {
   "name": "idoklad-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Unofficial MCP server for the iDoklad invoicing API (v3). Use iDoklad from Claude, Codex, Cursor and other AI agents.",
   "author": "Jan Vítek <info@vitekjan.cz>",
   "homepage": "https://github.com/honzsik/idoklad-mcp#readme",
@@ -33,7 +33,8 @@
     "smoke": "tsx scripts/smoke.ts",
     "typecheck": "tsc --noEmit",
     "inspect": "npx @modelcontextprotocol/inspector tsx src/index.ts",
-    "prepublishOnly": "npm run build && npm test"
+    "prepublishOnly": "npm run build && npm test",
+    "build:api-index": "tsx scripts/build-api-index.ts"
   },
   "keywords": [
     "mcp",

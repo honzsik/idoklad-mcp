@@ -1,3 +1,6 @@
+import { homedir } from "node:os";
+import { join } from "node:path";
+
 export interface Config {
   clientId: string;
   clientSecret: string;
@@ -5,6 +8,8 @@ export interface Config {
   readOnly: boolean;
   apiUrl: string;
   tokenUrl: string;
+  /** Folder for downloaded PDFs. */
+  downloadDir: string;
 }
 
 // Shared application ID of the idoklad-mcp project on developer.idoklad.cz.
@@ -38,5 +43,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     readOnly: (env.IDOKLAD_READ_ONLY ?? "true").trim().toLowerCase() !== "false",
     apiUrl: env.IDOKLAD_API_URL?.trim() || "https://api.idoklad.cz/v3",
     tokenUrl: env.IDOKLAD_TOKEN_URL?.trim() || "https://identity.idoklad.cz/server/v2/connect/token",
+    downloadDir: env.IDOKLAD_DOWNLOAD_DIR?.trim() || join(homedir(), "Downloads"),
   };
 }

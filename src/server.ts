@@ -1,23 +1,33 @@
+import { createRequire } from "node:module";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { IdokladClient } from "./client.js";
 import { Codebooks } from "./codebooks.js";
 import type { Config } from "./config.js";
+import { registerApiTools } from "./tools/api.js";
+import { registerContactTools } from "./tools/contacts.js";
+import { registerDocumentTools } from "./tools/documents.js";
 import { registerInvoiceTools } from "./tools/invoices.js";
 
-export const VERSION = "0.1.0";
+// Read from package.json (one level up from both src/ and dist/) so releases only bump one place.
+export const VERSION: string = createRequire(import.meta.url)("../package.json").version;
 
-export function createServer(client: IdokladClient, config: Pick<Config, "readOnly">): McpServer {
+export function createServer(client: IdokladClient, config: Pick<Config, "readOnly" | "downloadDir">): McpServer {
   const server = new McpServer(
     { name: "idoklad-mcp", version: VERSION },
     {
       instructions:
         "Tools for the iDoklad invoicing service (Czech/Slovak). IDs are numeric iDoklad IDs, not document numbers. " +
-        "Dates are YYYY-MM-DD. " +
+        "Dates are YYYY-MM-DD. Find customers with list_contacts and use their IDs. " +
+        "For anything without a dedicated tool, use search_api_docs and then idoklad_api_request. " +
         (config.readOnly
           ? "The server runs in read-only mode: tools that create or change data are disabled (set IDOKLAD_READ_ONLY=false to enable them)."
-          : "Write tools are enabled; confirm with the user before creating or changing documents."),
+          : "Write tools are enabled. Confirm with the user before creating documents, recording payments or sending emails."),
     },
   );
-  registerInvoiceTools(server, client, new Codebooks(client), { readOnly: config.readOnly });
+  const ctx = { server, client, codebooks: new Codebooks(client), readOnly: config.readOnly, downloadDir: config.downloadDir };
+  registerDocumentTools(ctx);
+  registerInvoiceTools(ctx);
+  registerContactTools(ctx);
+  registerApiTools(ctx);
   return server;
 }

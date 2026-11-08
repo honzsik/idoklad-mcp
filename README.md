@@ -11,14 +11,17 @@ It lets Claude, Codex, Cursor and other AI assistants read and create invoices i
 > 🇨🇿 [Návod v češtině](#česky)
 
 > [!WARNING]
-> **Early development (v0.1).** So far it only covers issued invoices. See the [roadmap](#roadmap).
+> **Early development (v0.2).** Tools and their inputs may still change. See the [roadmap](#roadmap).
 
 ## What you can ask
 
 - *"Which invoices are overdue?"*
 - *"How much has ACME paid us this year?"*
-- *"Show me the last invoice for Globex."*
+- *"Download the PDF of the last invoice for Globex."*
+- *"Which received invoices haven't we paid yet?"*
 - *"Create an invoice for ACME s.r.o.: 10 hours of consulting at 1,500 CZK, due in 14 days."* (needs [write mode](#read-only-by-default))
+- *"Invoice Globex like last month, but for 42 hours."* (copies currency, VAT and language from the previous invoice)
+- *"Mark invoice 20260018 as paid today."*
 
 ## Requirements
 
@@ -128,6 +131,7 @@ Ask your assistant *"Which of my iDoklad invoices are unpaid?"*
 | `IDOKLAD_CLIENT_SECRET` | yes | | From iDoklad → Settings → API |
 | `IDOKLAD_APPLICATION_ID` | yes | | The Client Id of your ClientCredentials app on developer.idoklad.cz |
 | `IDOKLAD_READ_ONLY` | no | `true` | Set to `false` to enable tools that create or change data |
+| `IDOKLAD_DOWNLOAD_DIR` | no | `~/Downloads` | Folder where downloaded PDFs are saved |
 
 To use **several companies**, add the server once per company under different names (for example `idoklad-firma-a` and `idoklad-firma-b`), each with that company's credentials.
 
@@ -143,11 +147,37 @@ Write tools are marked as such, so clients can ask you to confirm before running
 
 ## Tools
 
+**Documents**: issued invoices, proforma invoices, credit notes, received invoices.
+
 | Tool | Mode | What it does |
 | --- | --- | --- |
-| `list_issued_invoices` | read | List issued invoices, newest first. You can filter by unpaid, paid, partly paid or overdue, by customer, by issue date and by invoice number. |
-| `get_issued_invoice` | read | Get the full detail of one invoice: items, customer and totals. |
-| `create_issued_invoice` | write | Create an invoice from your company's default settings (numbering, bank account, VAT), identifying the customer by name or ID. |
+| `list_issued_invoices` | read | List issued invoices (vydané faktury), newest first. Filter by unpaid, paid, partly paid or overdue, customer, issue date or number. |
+| `list_proforma_invoices` | read | Same for proforma invoices (zálohové faktury). |
+| `list_credit_notes` | read | Same for credit notes (dobropisy). |
+| `list_received_invoices` | read | Same for received invoices (přijaté faktury), filtered by supplier. |
+| `get_issued_invoice`, `get_proforma_invoice`, `get_credit_note`, `get_received_invoice` | read | Full detail of one document: items, partner and totals. |
+| `get_document_pdf` | read | Save a document's PDF to your Downloads folder, optionally in another language or with payments. |
+| `create_issued_invoice` | write | Create an invoice from your default settings, or copy a previous invoice's settings. Supports currency (exchange rate filled in automatically), language, VAT rate and due date. |
+| `mark_document_paid` | write | Record full payment of an invoice, proforma or received invoice. |
+| `mark_document_unpaid` | write | Remove payments, so the document is unpaid again. |
+| `send_document_email` | write | Email an invoice, proforma or credit note through iDoklad, using your iDoklad email template. |
+
+**Contacts and price list**
+
+| Tool | Mode | What it does |
+| --- | --- | --- |
+| `list_contacts` | read | Search contacts by name, IČO, DIČ or email. |
+| `get_contact` | read | Full detail of one contact. |
+| `create_contact` | write | Create a customer or supplier. |
+| `list_price_list_items` | read | Search the price list (ceník) by name or code. |
+
+**Everything else**
+
+| Tool | Mode | What it does |
+| --- | --- | --- |
+| `get_codebook` | read | Currencies, countries, VAT rates, payment options, your bank accounts, numeric sequences and other lists. |
+| `search_api_docs` | read | Search the full iDoklad API reference, which is bundled with the server. |
+| `idoklad_api_request` | read / write | Call any iDoklad endpoint directly, e.g. bank statements, recurring invoices or stock. In read-only mode it only allows GET. |
 
 ## Privacy and security
 
@@ -168,12 +198,13 @@ Write tools are marked as such, so clients can ask you to confirm before running
 ## Roadmap
 
 - [x] Issued invoices: list, detail, create
-- [ ] Choose the currency for new invoices (USD, EUR and others)
-- [ ] Proforma invoices, credit notes, received invoices
-- [ ] Contacts and price list items
-- [ ] Payments (mark as paid)
-- [ ] PDF download and sending invoices by email
-- [ ] Generic tools: call any iDoklad endpoint, search the API docs
+- [x] Currency for new invoices, and copying a previous invoice
+- [x] Proforma invoices, credit notes, received invoices
+- [x] Contacts and price list items
+- [x] Payments (mark as paid or unpaid)
+- [x] PDF download and sending documents by email
+- [x] Generic tools: call any iDoklad endpoint, search the API docs
+- [ ] Create proforma invoices and credit notes
 - [ ] One-click install for Claude Desktop, and a listing in the MCP Registry
 - [ ] Hosted version with iDoklad login (OAuth) for claude.ai and ChatGPT
 
@@ -195,6 +226,7 @@ cp .env.example .env   # add your credentials
 | `npm run smoke` | Calls the read tools through a real MCP connection |
 | `npm run inspect` | Opens the tools in [MCP Inspector](https://github.com/modelcontextprotocol/inspector) |
 | `npm run build` | Compiles to `dist/` |
+| `npm run build:api-index` | Refreshes the bundled API reference from iDoklad's docs |
 
 If you open this folder in Claude Code, it picks up [`.mcp.json`](.mcp.json) and runs the server from source as `idoklad-dev`.
 
@@ -208,6 +240,17 @@ The code is in `src/`:
 - `tools/`: the MCP tools.
 
 Pull requests are welcome. Please run `npm run typecheck && npm test` before opening one.
+
+### Releasing
+
+Releases are published to npm by GitHub Actions ([`release.yml`](.github/workflows/release.yml)) when a version tag is pushed:
+
+```bash
+npm version minor        # or patch / major: updates package.json and creates a tag
+git push --follow-tags
+```
+
+Before tagging, move the changes in `CHANGELOG.md` under the new version.
 
 ## License
 

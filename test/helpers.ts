@@ -8,6 +8,7 @@ export const testConfig: Config = {
   readOnly: true,
   apiUrl: "https://api.test/v3",
   tokenUrl: "https://identity.test/token",
+  downloadDir: "/tmp/idoklad-mcp-test",
 };
 
 export interface Call {

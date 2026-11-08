@@ -1,140 +1,38 @@
 import { z } from "zod";
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { IdokladClient, Page } from "../client.js";
-import type { Codebooks } from "../codebooks.js";
-import { buildFilter, type Condition } from "../filter.js";
+import { REPORT_LANGUAGE, summarizeDocument, type Document } from "../documents.js";
+import { buildFilter } from "../filter.js";
+import { WRITE, type ToolContext } from "./context.js";
 import { addDays, run, todayIso } from "./util.js";
-
-// Subset of the iDoklad issued invoice model we rely on.
-interface IssuedInvoice {
-  Id: number;
-  DocumentNumber?: string;
-  DateOfIssue?: string;
-  DateOfMaturity?: string;
-  DateOfPayment?: string;
-  Description?: string;
-  VariableSymbol?: string;
-  CurrencyId?: number;
-  PartnerId?: number;
-  PartnerAddress?: { NickName?: string; Firstname?: string; Surname?: string; IdentificationNumber?: string };
-  PaymentStatus?: number;
-  Prices?: { TotalWithVat?: number; TotalWithoutVat?: number; TotalPaid?: number };
-  Items?: unknown[];
-  [key: string]: unknown;
-}
 
 interface Contact {
   Id: number;
   CompanyName?: string;
-  Firstname?: string;
-  Surname?: string;
   IdentificationNumber?: string;
-  Email?: string;
-}
-
-const PAYMENT_STATUS = ["unpaid", "paid", "partially_paid", "overpaid"] as const;
-
-export function summarizeInvoice(inv: IssuedInvoice, currency?: string) {
-  const partner = inv.PartnerAddress;
-  return {
-    id: inv.Id,
-    number: inv.DocumentNumber,
-    partner: partner?.NickName || [partner?.Firstname, partner?.Surname].filter(Boolean).join(" ") || undefined,
-    partnerId: inv.PartnerId,
-    description: inv.Description || undefined,
-    issued: inv.DateOfIssue?.slice(0, 10),
-    due: inv.DateOfMaturity?.slice(0, 10),
-    paymentStatus: inv.PaymentStatus !== undefined ? PAYMENT_STATUS[inv.PaymentStatus] : undefined,
-    totalWithVat: inv.Prices?.TotalWithVat,
-    totalWithoutVat: inv.Prices?.TotalWithoutVat,
-    totalPaid: inv.Prices?.TotalPaid,
-    currency: currency ?? (inv.CurrencyId !== undefined ? `currencyId ${inv.CurrencyId}` : undefined),
-    variableSymbol: inv.VariableSymbol || undefined,
-  };
 }
 
 const VAT_RATE_TYPE = { reduced1: 0, basic: 1, zero: 2, reduced2: 3 } as const;
 const PRICE_TYPE = { with_vat: 0, without_vat: 1, only_base: 2 } as const;
+const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD");
 
-export function registerInvoiceTools(
-  server: McpServer,
-  client: IdokladClient,
-  codebooks: Codebooks,
-  opts: { readOnly: boolean },
-) {
-  const summarize = async (inv: IssuedInvoice) => summarizeInvoice(inv, await codebooks.currencyCode(inv.CurrencyId));
-
-  server.registerTool(
-    "list_issued_invoices",
-    {
-      title: "List issued invoices",
-      description:
-        "List issued invoices (vydané faktury), newest first. Filter by payment status, overdue, partner, issue date range or document number. " +
-        "Returns a compact summary per invoice; use get_issued_invoice for full detail.",
-      inputSchema: {
-        status: z.enum(["unpaid", "paid", "partially_paid", "overdue"]).optional().describe("Payment status. 'overdue' = unpaid and past due date."),
-        partnerId: z.number().int().optional().describe("Contact ID of the customer."),
-        issuedFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe("Issue date from (YYYY-MM-DD, inclusive)."),
-        issuedTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe("Issue date to (YYYY-MM-DD, inclusive)."),
-        documentNumber: z.string().optional().describe("Part of the invoice number."),
-        page: z.number().int().min(1).default(1),
-        pageSize: z.number().int().min(1).max(200).default(20),
-      },
-      annotations: { readOnlyHint: true, openWorldHint: true },
-    },
-    (args) =>
-      run(async () => {
-        const conditions: Condition[] = [];
-        if (args.status === "paid") conditions.push({ field: "IsPaid", op: "eq", value: true });
-        if (args.status === "unpaid") conditions.push({ field: "IsPaid", op: "eq", value: false });
-        if (args.status === "partially_paid") conditions.push({ field: "PaymentStatus", op: "eq", value: "PartialPaid" });
-        if (args.status === "overdue") {
-          conditions.push({ field: "IsPaid", op: "eq", value: false }, { field: "DateOfMaturity", op: "lt", value: todayIso() });
-        }
-        if (args.partnerId) conditions.push({ field: "PartnerId", op: "eq", value: args.partnerId });
-        if (args.issuedFrom) conditions.push({ field: "DateOfIssue", op: "gte", value: args.issuedFrom });
-        if (args.issuedTo) conditions.push({ field: "DateOfIssue", op: "lte", value: args.issuedTo });
-        if (args.documentNumber) conditions.push({ field: "DocumentNumber", op: "ct", value: args.documentNumber });
-
-        const page = await client.get<Page<IssuedInvoice>>("IssuedInvoices", {
-          filter: buildFilter(conditions),
-          sort: "DateOfIssue~desc",
-          page: args.page,
-          pagesize: args.pageSize,
-        });
-        return {
-          totalItems: page.TotalItems,
-          totalPages: page.TotalPages,
-          page: args.page,
-          invoices: await Promise.all(page.Items.map(summarize)),
-        };
-      }),
-  );
-
-  server.registerTool(
-    "get_issued_invoice",
-    {
-      title: "Get issued invoice",
-      description: "Get full detail of one issued invoice (vydaná faktura) by ID, including items, partner and prices.",
-      inputSchema: { id: z.number().int().describe("Invoice ID (not the document number).") },
-      annotations: { readOnlyHint: true, openWorldHint: true },
-    },
-    ({ id }) => run(() => client.get<IssuedInvoice>(`IssuedInvoices/${id}`, { include: "Partner" })),
-  );
-
-  if (opts.readOnly) return;
+export function registerInvoiceTools(ctx: ToolContext) {
+  const { server, client, codebooks } = ctx;
+  if (ctx.readOnly) return;
 
   server.registerTool(
     "create_issued_invoice",
     {
       title: "Create issued invoice",
       description:
-        "Create a new issued invoice (vydaná faktura). Starts from the company's default invoice in iDoklad " +
-        "(numbering, bank account, VAT settings) and fills in the customer and items. " +
-        "Identify the customer by partnerId, or by partnerName which must match exactly one contact.",
+        "Create a new issued invoice (vydaná faktura). By default it starts from the company's default invoice in iDoklad " +
+        "(numbering, bank account, VAT settings). For a repeat customer, pass copyFromInvoiceId of their previous invoice " +
+        "to reuse its currency, VAT treatment, language and payment method; only the items and dates change. " +
+        "Identify the customer by partnerId, or by partnerName which must match exactly one contact. " +
+        "Confirm the details with the user before creating.",
       inputSchema: {
         partnerId: z.number().int().optional().describe("Contact ID of the customer."),
         partnerName: z.string().optional().describe("Customer company name (searched in contacts) if partnerId is unknown."),
+        copyFromInvoiceId: z.number().int().optional().describe("ID of an earlier issued invoice to copy settings from."),
         items: z
           .array(
             z.object({
@@ -142,70 +40,119 @@ export function registerInvoiceTools(
               unitPrice: z.number(),
               amount: z.number().default(1).describe("Quantity."),
               unit: z.string().max(20).optional().describe("Unit, e.g. 'ks', 'hod'."),
-              priceType: z.enum(["without_vat", "with_vat", "only_base"]).default("without_vat").describe("Whether unitPrice excludes or includes VAT."),
-              vatRateType: z.enum(["basic", "reduced1", "reduced2", "zero"]).default("basic").describe("VAT rate (basic = 21 % in CZ)."),
+              priceType: z.enum(["without_vat", "with_vat", "only_base"]).optional().describe("Whether unitPrice excludes or includes VAT. Default: without_vat, or the copied invoice's setting."),
+              vatRateType: z.enum(["basic", "reduced1", "reduced2", "zero"]).optional().describe("VAT rate (basic = 21 % in CZ). Default: the template's rate."),
             }),
           )
           .min(1),
-        dateOfIssue: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe("Default: today."),
+        currency: z.string().length(3).optional().describe("Currency code, e.g. CZK, EUR, USD. The exchange rate is filled in automatically."),
+        language: z.enum(["cs", "sk", "en", "de"]).optional().describe("Invoice language."),
+        dateOfIssue: date.optional().describe("Default: today."),
         dueInDays: z.number().int().min(0).optional().describe("Days until due. Default: the company's setting."),
         description: z.string().optional().describe("Invoice description (popis)."),
         note: z.string().optional(),
         orderNumber: z.string().max(25).optional(),
         variableSymbol: z.string().max(10).optional().describe("Default: generated from the invoice number."),
       },
-      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+      annotations: WRITE,
     },
     (args) =>
       run(async () => {
         const partnerId = args.partnerId ?? (await findPartnerId(client, args.partnerName));
-        const draft = await client.get<Record<string, unknown>>("IssuedInvoices/Default");
-        // The draft carries one blank item with every field iDoklad requires; reuse it for each line.
+        const [defaults, copied] = await Promise.all([
+          client.get<Record<string, unknown>>("IssuedInvoices/Default"),
+          args.copyFromInvoiceId ? client.get<Record<string, unknown>>(`IssuedInvoices/${args.copyFromInvoiceId}/Copy`) : undefined,
+        ]);
+        const draft = copied ?? defaults;
+
+        // The draft carries a template item with every field iDoklad requires; reuse it for each line.
         const itemTemplate: Record<string, unknown> = {
           DiscountPercentage: 0,
           IsTaxMovement: false,
           ...((draft.Items as Record<string, unknown>[] | undefined)?.[0] ?? {}),
         };
 
-        const dateOfIssue = args.dateOfIssue ?? (draft.DateOfIssue as string | undefined)?.slice(0, 10) ?? todayIso();
+        const dateOfIssue = args.dateOfIssue ?? todayIso();
         const invoice: Record<string, unknown> = {
           ...draft,
           PartnerId: partnerId,
           DateOfIssue: dateOfIssue,
           DateOfTaxing: dateOfIssue,
-          Items: args.items.map((item) => {
-            const vatRateType = VAT_RATE_TYPE[item.vatRateType];
-            const line: Record<string, unknown> = {
-              ...itemTemplate,
-              Name: item.name,
-              UnitPrice: item.unitPrice,
-              Amount: item.amount,
-              Unit: item.unit ?? itemTemplate.Unit ?? "",
-              PriceType: PRICE_TYPE[item.priceType],
-              VatRateType: vatRateType,
-              ItemType: 0,
-            };
-            // The template's VAT rate and code belong to its own rate type; let iDoklad pick them for other types.
-            if (vatRateType !== itemTemplate.VatRateType) {
-              delete line.VatRate;
-              delete line.VatCodeId;
-            }
-            return line;
-          }),
+          Items: args.items.map((item) => buildItem(item, itemTemplate, !copied)),
         };
-        if (args.dueInDays !== undefined) invoice.DateOfMaturity = addDays(dateOfIssue, args.dueInDays);
+
+        // Keep the due period: from the copied invoice's own dates, or the default draft's.
+        const dueDays = args.dueInDays ?? daysBetween(draft.DateOfIssue, draft.DateOfMaturity);
+        if (dueDays !== undefined) invoice.DateOfMaturity = addDays(dateOfIssue, dueDays);
+
+        if (args.currency || copied) {
+          const currencyId = args.currency ? await codebooks.currencyId(args.currency) : (draft.CurrencyId as number);
+          const { rate, amount } = await codebooks.exchangeRate(currencyId, defaults.CurrencyId as number, dateOfIssue);
+          invoice.CurrencyId = currencyId;
+          invoice.ExchangeRate = rate;
+          invoice.ExchangeRateAmount = amount;
+        }
+        if (args.language) invoice.ReportLanguage = REPORT_LANGUAGE[args.language];
         if (args.description !== undefined) invoice.Description = args.description;
         if (args.note !== undefined) invoice.Note = args.note;
         if (args.orderNumber !== undefined) invoice.OrderNumber = args.orderNumber;
         if (args.variableSymbol !== undefined) invoice.VariableSymbol = args.variableSymbol;
+        if (copied) {
+          // Take numbering from the default draft so the new invoice gets the next free number.
+          invoice.NumericSequenceId = defaults.NumericSequenceId;
+          invoice.DocumentSerialNumber = defaults.DocumentSerialNumber;
+          if (args.variableSymbol === undefined) invoice.VariableSymbol = defaults.VariableSymbol;
+        }
 
-        const created = await client.post<IssuedInvoice>("IssuedInvoices", invoice);
-        return summarize(created);
+        const created = await client.post<Document>("IssuedInvoices", invoice);
+        return summarizeDocument(created, await codebooks.currencyCode(created.CurrencyId));
       }),
   );
 }
 
-async function findPartnerId(client: IdokladClient, name?: string): Promise<number> {
+type ItemInput = {
+  name: string;
+  unitPrice: number;
+  amount: number;
+  unit?: string;
+  priceType?: keyof typeof PRICE_TYPE;
+  vatRateType?: keyof typeof VAT_RATE_TYPE;
+};
+
+function buildItem(item: ItemInput, template: Record<string, unknown>, isDefaultTemplate: boolean): Record<string, unknown> {
+  const line: Record<string, unknown> = {
+    ...template,
+    Name: item.name,
+    UnitPrice: item.unitPrice,
+    Amount: item.amount,
+    Unit: item.unit ?? template.Unit ?? "",
+    ItemType: 0,
+  };
+  // The default draft has PriceType "with VAT"; we default to "without VAT" as people usually quote net prices.
+  if (item.priceType) line.PriceType = PRICE_TYPE[item.priceType];
+  else if (isDefaultTemplate) line.PriceType = PRICE_TYPE.without_vat;
+
+  if (item.vatRateType) {
+    const vatRateType = VAT_RATE_TYPE[item.vatRateType];
+    line.VatRateType = vatRateType;
+    // The template's VAT rate and code belong to its own rate type; let iDoklad pick them for other types.
+    if (vatRateType !== template.VatRateType) {
+      delete line.VatRate;
+      delete line.VatCodeId;
+    }
+  }
+  delete line.Id;
+  delete line.Prices;
+  return line;
+}
+
+function daysBetween(from: unknown, to: unknown): number | undefined {
+  if (typeof from !== "string" || typeof to !== "string") return undefined;
+  const ms = Date.parse(to.slice(0, 10)) - Date.parse(from.slice(0, 10));
+  return Number.isFinite(ms) && ms >= 0 ? Math.round(ms / 86_400_000) : undefined;
+}
+
+export async function findPartnerId(client: IdokladClient, name?: string): Promise<number> {
   if (!name) throw new Error("Provide partnerId or partnerName.");
   const page = await client.get<Page<Contact>>("Contacts", {
     filter: buildFilter([{ field: "CompanyName", op: "ct", value: name }]),
@@ -218,7 +165,7 @@ async function findPartnerId(client: IdokladClient, name?: string): Promise<numb
   const list = matches.map((c) => `${c.Id}: ${c.CompanyName ?? ""} ${c.IdentificationNumber ? `(IČO ${c.IdentificationNumber})` : ""}`.trim());
   throw new Error(
     matches.length === 0
-      ? `No contact matches "${name}". Create the contact first or pass partnerId.`
+      ? `No contact matches "${name}". Create the contact first (create_contact) or pass partnerId.`
       : `Several contacts match "${name}"; pass partnerId instead:\n${list.join("\n")}`,
   );
 }

@@ -1,21 +1,45 @@
+// Read-only smoke test: starts the server like an AI client would and calls every read tool once.
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-// Read-only smoke test: starts the server like an AI client would and calls the read tools.
+import { tmpdir } from "node:os";
+
 const transport = new StdioClientTransport({
-  command: "npx", args: ["tsx", "--env-file-if-exists=.env", "src/index.ts"], cwd: process.cwd(),
-  env: { ...process.env, PATH: process.env.PATH!, IDOKLAD_READ_ONLY: "true" } as Record<string, string>,
+  command: "npx",
+  args: ["tsx", "--env-file-if-exists=.env", "src/index.ts"],
+  cwd: process.cwd(),
+  env: { ...process.env, IDOKLAD_READ_ONLY: "true", IDOKLAD_DOWNLOAD_DIR: tmpdir() } as Record<string, string>,
 });
-const c = new Client({ name: "e2e", version: "1" });
-await c.connect(transport);
-const show = async (name: string, args: any) => {
-  const r: any = await c.callTool({ name, arguments: args });
-  console.log(`\n### ${name} ${JSON.stringify(args)} ${r.isError ? "ERROR" : ""}\n${r.content[0].text.slice(0, 1500)}`);
-  return r;
-};
-console.log("tools:", (await c.listTools()).tools.map((t) => t.name).join(", "));
-const list = await show("list_issued_invoices", { pageSize: 3 });
-await show("list_issued_invoices", { status: "unpaid", pageSize: 2 });
-await show("list_issued_invoices", { status: "overdue", pageSize: 2 });
-const first = JSON.parse(list.content[0].text).invoices?.[0];
-if (first) await show("get_issued_invoice", { id: first.id });
-await c.close();
+const client = new Client({ name: "smoke", version: "1" });
+await client.connect(transport);
+
+let failures = 0;
+async function check(name: string, args: Record<string, unknown> = {}) {
+  const res: any = await client.callTool({ name, arguments: args });
+  const text: string = res.content[0].text;
+  if (res.isError) failures++;
+  console.log(`${res.isError ? "FAIL" : "ok  "} ${name} ${JSON.stringify(args)}\n     ${text.replace(/\s+/g, " ").slice(0, 160)}`);
+  return res.isError ? undefined : JSON.parse(text);
+}
+
+console.log("tools:", (await client.listTools()).tools.map((t) => t.name).join(", "));
+const invoices = await check("list_issued_invoices", { pageSize: 2 });
+await check("list_issued_invoices", { status: "overdue", pageSize: 2 });
+const id = invoices?.documents?.[0]?.id;
+if (id) {
+  await check("get_issued_invoice", { id });
+  await check("get_document_pdf", { documentType: "issued_invoice", id });
+}
+await check("list_proforma_invoices", { pageSize: 2 });
+await check("list_credit_notes", { pageSize: 2 });
+const received = await check("list_received_invoices", { status: "unpaid", pageSize: 2 });
+if (received?.documents?.[0]) await check("get_received_invoice", { id: received.documents[0].id });
+const contacts = await check("list_contacts", { pageSize: 2 });
+if (contacts?.contacts?.[0]) await check("get_contact", { id: contacts.contacts[0].id });
+await check("list_price_list_items", { pageSize: 2 });
+for (const codebook of ["currencies", "vat_rates", "payment_options", "bank_accounts"]) await check("get_codebook", { codebook });
+await check("search_api_docs", { query: "bank statement", limit: 2 });
+await check("idoklad_api_request", { method: "GET", path: "BankStatements", query: { pagesize: 1 } });
+
+await client.close();
+console.log(failures ? `\n${failures} check(s) failed` : "\nAll checks passed");
+process.exit(failures ? 1 : 0);
