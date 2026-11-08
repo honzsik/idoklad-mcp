@@ -80,7 +80,16 @@ describe("tool list", () => {
     const { client } = await connect(() => ok({}), false);
     const names = (await client.listTools()).tools.map((t) => t.name);
     expect(names).toEqual(
-      expect.arrayContaining(["create_issued_invoice", "create_contact", "send_document_email", "mark_document_paid", "mark_document_unpaid"]),
+      expect.arrayContaining([
+        "create_issued_invoice",
+        "create_proforma_invoice",
+        "create_credit_note",
+        "create_invoice_from_proforma",
+        "create_contact",
+        "send_document_email",
+        "mark_document_paid",
+        "mark_document_unpaid",
+      ]),
     );
   });
 });
@@ -209,7 +218,7 @@ describe("create_issued_invoice", () => {
       Items: [{ Name: "Old", Id: 55, Prices: {}, VatRateType: 2, VatRate: 0, VatCodeId: 14, PriceType: 1, IsTaxMovement: true, DiscountPercentage: 0 }],
     };
     const { call, apiCalls } = await connect(handler((c) => (c.url.pathname.endsWith("/IssuedInvoices/67/Copy") ? ok(copy) : undefined)), false);
-    await call("create_issued_invoice", { partnerId: 3, copyFromInvoiceId: 67, dateOfIssue: "2026-11-30", items: [{ name: "Dev November", unitPrice: 42 }] });
+    await call("create_issued_invoice", { partnerId: 3, copyFromId: 67, dateOfIssue: "2026-11-30", items: [{ name: "Dev November", unitPrice: 42 }] });
     const body = posted(apiCalls());
     expect(body).toMatchObject({
       CurrencyId: 11,
@@ -231,6 +240,57 @@ describe("create_issued_invoice", () => {
     expect(res.isError).toBe(true);
     expect(res.text).toMatch(/Several contacts match/);
     expect(apiCalls().some((c) => c.method === "POST")).toBe(false);
+  });
+});
+
+describe("proforma and credit note tools", () => {
+  it("create_proforma_invoice uses the proforma endpoints", async () => {
+    const { call, apiCalls } = await connect((c) => {
+      if (c.url.pathname.endsWith("/ProformaInvoices/Default")) return ok({ ...defaultDraft, NumericSequenceId: 77 });
+      if (c.method === "POST") return ok({ ...invoice, Id: 30 });
+      return { status: 500 } as never;
+    }, false);
+    const res = await call("create_proforma_invoice", { partnerId: 3, items: [{ name: "Deposit", unitPrice: 5000 }] });
+    expect(res.json.id).toBe(30);
+    const post = apiCalls().find((c) => c.method === "POST")!;
+    expect(post.url.pathname).toBe("/v3/ProformaInvoices");
+    expect(post.body).toMatchObject({ PartnerId: 3, NumericSequenceId: 77, Items: [{ Name: "Deposit", UnitPrice: 5000, PriceType: 1 }] });
+  });
+
+  const creditDraft = {
+    CreditedInvoiceId: 7,
+    CreditNoteReason: "",
+    DateOfIssue: "2026-11-08",
+    DateOfMaturity: "2026-11-22",
+    CurrencyId: 1,
+    Items: [{ Name: "Consulting", Amount: 2, UnitPrice: -1000, PriceType: 1, VatRateType: 1, VatCodeId: 3, IsTaxMovement: true, DiscountPercentage: 0 }],
+  };
+
+  it("create_credit_note credits the whole invoice by default", async () => {
+    const { call, apiCalls } = await connect((c) =>
+      c.url.pathname.endsWith("/CreditNotes/Default/7") ? ok(creditDraft) : ok({ ...invoice, Id: 40, DocumentNumber: "D20260001" }),
+    false);
+    const res = await call("create_credit_note", { invoiceId: 7, reason: "Wrong quantity", dateOfIssue: "2026-11-10" });
+    expect(res.json.number).toBe("D20260001");
+    const post = apiCalls().find((c) => c.method === "POST")!;
+    expect(post.url.pathname).toBe("/v3/CreditNotes");
+    expect(post.body).toMatchObject({ CreditNoteReason: "Wrong quantity", DateOfIssue: "2026-11-10", DateOfMaturity: "2026-11-24", Items: creditDraft.Items });
+  });
+
+  it("create_credit_note with items enters negative prices and can offset", async () => {
+    const { call, apiCalls } = await connect((c) => (c.url.pathname.endsWith("/CreditNotes/Default/7") ? ok(creditDraft) : ok({ ...invoice, Id: 41 })), false);
+    await call("create_credit_note", { invoiceId: 7, reason: "Discount", offset: true, items: [{ name: "Discount", unitPrice: 200 }] });
+    const post = apiCalls().find((c) => c.method === "POST")!;
+    expect(post.url.pathname).toBe("/v3/CreditNotes/Offset");
+    expect(post.body).toMatchObject({ Items: [{ Name: "Discount", UnitPrice: -200, Amount: 1, VatCodeId: 3, PriceType: 1 }] });
+  });
+
+  it("create_invoice_from_proforma accounts the proforma", async () => {
+    const { call, apiCalls } = await connect(() => ok({ ...invoice, Id: 50 }), false);
+    const res = await call("create_invoice_from_proforma", { proformaId: 30 });
+    expect(apiCalls()[0]).toMatchObject({ method: "PUT" });
+    expect(apiCalls()[0].url.pathname).toBe("/v3/ProformaInvoices/30/Account");
+    expect(res.json.id).toBe(50);
   });
 });
 

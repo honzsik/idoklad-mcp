@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0 (unreleased)
+
+- `create_proforma_invoice`: create proforma invoices, from defaults or copied from an earlier proforma.
+- `create_invoice_from_proforma`: create the final invoice from a paid proforma (vyúčtování zálohy).
+- `create_credit_note`: credit a whole invoice or selected items, optionally settled against the invoice.
+- **Breaking:** `create_issued_invoice` input `copyFromInvoiceId` is renamed to `copyFromId`.
+
 ## 0.2.0 (2026-11-08)
 
 - New document types: proforma invoices, credit notes and received invoices (list and detail).

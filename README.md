@@ -22,6 +22,7 @@ It lets Claude, Codex, Cursor and other AI assistants read and create invoices i
 - *"Create an invoice for ACME s.r.o.: 10 hours of consulting at 1,500 CZK, due in 14 days."* (needs [write mode](#read-only-by-default))
 - *"Invoice Globex like last month, but for 42 hours."* (copies currency, VAT and language from the previous invoice)
 - *"Mark invoice 20260018 as paid today."*
+- *"Issue a credit note for invoice 20260015, the client returned 2 of the 10 licences."*
 
 ## Requirements
 
@@ -158,6 +159,9 @@ Write tools are marked as such, so clients can ask you to confirm before running
 | `get_issued_invoice`, `get_proforma_invoice`, `get_credit_note`, `get_received_invoice` | read | Full detail of one document: items, partner and totals. |
 | `get_document_pdf` | read | Save a document's PDF to your Downloads folder, optionally in another language or with payments. |
 | `create_issued_invoice` | write | Create an invoice from your default settings, or copy a previous invoice's settings. Supports currency (exchange rate filled in automatically), language, VAT rate and due date. |
+| `create_proforma_invoice` | write | Same for proforma invoices (zálohové faktury). |
+| `create_invoice_from_proforma` | write | Create the final invoice from a paid proforma (vyúčtování zálohy). |
+| `create_credit_note` | write | Credit a whole invoice or selected items, with a reason. It can also settle the credit note against the invoice. |
 | `mark_document_paid` | write | Record full payment of an invoice, proforma or received invoice. |
 | `mark_document_unpaid` | write | Remove payments, so the document is unpaid again. |
 | `send_document_email` | write | Email an invoice, proforma or credit note through iDoklad, using your iDoklad email template. |
@@ -204,7 +208,7 @@ Write tools are marked as such, so clients can ask you to confirm before running
 - [x] Payments (mark as paid or unpaid)
 - [x] PDF download and sending documents by email
 - [x] Generic tools: call any iDoklad endpoint, search the API docs
-- [ ] Create proforma invoices and credit notes
+- [x] Create proforma invoices and credit notes, and invoices from paid proformas
 - [ ] One-click install for Claude Desktop, and a listing in the MCP Registry
 - [ ] Hosted version with iDoklad login (OAuth) for claude.ai and ChatGPT
 
