@@ -32,6 +32,8 @@ export const WRITE_TOOLS = [
   "send_document_email",
   "mark_document_paid",
   "mark_document_unpaid",
+  "send_payment_reminder",
+  "send_payment_confirmation",
 ];
 
 const contains = (s: string) => (v: unknown) => typeof v === "string" && v.toLowerCase().includes(s.toLowerCase());
@@ -63,6 +65,22 @@ export const CASES: EvalCase[] = [
     prompt: "Ukaž mi naše bankovní výpisy v iDokladu.",
     expect: [{ tool: "idoklad_api_request", args: { method: "GET", path: contains("BankStatements") } }],
   },
+
+  // ── Business overview ──────────────────────────────────────────────────────
+  {
+    id: "top-debtors-cs",
+    prompt: "Kdo mi dluží nejvíc peněz?",
+    expect: [{ tool: "get_top_partners", args: { kind: "debtors" } }, { tool: "get_business_stats", args: { report: "overdue_aging" } }],
+  },
+  { id: "top-customers-en", prompt: "Who are my three biggest customers?", expect: [{ tool: "get_top_partners", args: { kind: "customers" } }] },
+  { id: "year-vs-last-cs", prompt: "Jak se mi letos daří oproti loňsku?", expect: [{ tool: "get_business_stats", args: { report: "year_comparison" } }] },
+  {
+    id: "monthly-revenue-en",
+    prompt: "How much did I invoice each month over the last three months, and what were my costs?",
+    expect: [{ tool: "get_business_stats", args: { report: "revenue_by_period", period: "month" } }],
+  },
+  { id: "vat-limit-cs", prompt: "Kolik mi ještě zbývá do povinné registrace k DPH?", expect: [{ tool: "get_business_stats", args: { report: "vat_registration_limit" } }] },
+  { id: "customer-payer-cs", prompt: "Jak spolehlivě platí Globex?", expect: [{ tool: "get_contact_stats", args: { contactId: 4 } }] },
 
   // ── Writing (the runner answers "yes" once if Claude asks for confirmation) ─
   {
@@ -114,6 +132,23 @@ export const CASES: EvalCase[] = [
     id: "new-contact-cs",
     prompt: "Přidej nový kontakt: Nová firma s.r.o., IČO 12345678, Praha.",
     expect: [{ tool: "create_contact", args: { companyName: contains("Nová firma"), ico: "12345678" } }],
+  },
+
+  {
+    id: "reminder-one-cs",
+    prompt: "Pošli upomínku k faktuře 20260018.",
+    expect: [{ tool: "send_payment_reminder", args: { id: 101 } }],
+  },
+  {
+    id: "reminder-all-overdue-en",
+    prompt: "Send payment reminders for all overdue invoices.",
+    expect: [{ tool: "send_payment_reminder", args: { id: 101 } }],
+    forbid: WRITE_TOOLS.filter((t) => t !== "send_payment_reminder").concat("send_document_email"),
+  },
+  {
+    id: "payment-confirmation-en",
+    prompt: "Alfa paid proforma Z20260002. Send them a payment confirmation.",
+    expect: [{ tool: "send_payment_confirmation", args: { documentId: 201 } }],
   },
 
   // ── Must not act ───────────────────────────────────────────────────────────

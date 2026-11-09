@@ -71,6 +71,9 @@ describe("tool list", () => {
         "list_proforma_invoices",
         "list_received_invoices",
         "search_api_docs",
+        "get_business_stats",
+        "get_top_partners",
+        "get_contact_stats",
       ].sort(),
     );
   });
@@ -88,6 +91,8 @@ describe("tool list", () => {
         "send_document_email",
         "mark_document_paid",
         "mark_document_unpaid",
+        "send_payment_reminder",
+        "send_payment_confirmation",
       ]),
     );
   });
@@ -290,6 +295,89 @@ describe("proforma and credit note tools", () => {
     expect(apiCalls()[0]).toMatchObject({ method: "PUT" });
     expect(apiCalls()[0].url.pathname).toBe("/v3/ProformaInvoices/30/Account");
     expect(res.json.id).toBe(50);
+  });
+});
+
+describe("statistics tools", () => {
+  it("revenue_by_period merges income and costs per period and labels months with the year", async () => {
+    const row = (n: number, period: string, total: number) => ({ NumericPeriod: n, Period: period, TotalWithVat: total, TotalWithoutVat: total, TotalPaid: total, TotalUnpaid: 0 });
+    const { call, apiCalls } = await connect(() =>
+      ok({ IssuedInvoices: [row(202512, "Dec", 100), row(202601, "Jan", 200)], ReceivedInvoices: [row(202601, "Jan", 50)] }),
+    );
+    const res = await call("get_business_stats", { report: "revenue_by_period", periods: 2 });
+    const q = apiCalls()[0].url.searchParams;
+    expect(apiCalls()[0].url.pathname).toBe("/v3/Statistics/InvoicingForPeriod");
+    expect(q.get("periodType")).toBe("1");
+    expect(q.get("PeriodsCount")).toBe("2");
+    expect(res.json.rows).toEqual([
+      { period: "2025-12", income: { withVat: 100, withoutVat: 100, paid: 100, unpaid: 0 } },
+      { period: "2026-01", income: { withVat: 200, withoutVat: 200, paid: 200, unpaid: 0 }, costs: { withVat: 50, withoutVat: 50, paid: 50, unpaid: 0 } },
+    ]);
+  });
+
+  it("year_comparison asks for this and last year", async () => {
+    const totals = (n: number) => ({ IssuedInvoices: { Paid: n, TotalWithVat: n, WithoutVat: n }, ReceivedInvoices: { Paid: 1, TotalWithVat: 1, WithoutVat: 1 } });
+    const { call, apiCalls } = await connect((c) => ok(totals(c.url.searchParams.get("yearType") === "0" ? 2000 : 1500)));
+    const res = await call("get_business_stats", { report: "year_comparison" });
+    expect(apiCalls().map((c) => c.url.searchParams.get("yearType")).sort()).toEqual(["0", "1"]);
+    expect(res.json.thisYear.income.withVat).toBe(2000);
+    expect(res.json.lastYear.income.withVat).toBe(1500);
+  });
+
+  it("overdue_aging totals receivables and payables", async () => {
+    const { call } = await connect(() =>
+      ok({ Issue: [{ Interval: 30, IntervalDescription: "1 - 30", TotalDebt: 100 }, { Interval: 60, IntervalDescription: "31 - 60", TotalDebt: 50.5 }], Entry: [] }),
+    );
+    const res = await call("get_business_stats", { report: "overdue_aging" });
+    expect(res.json.receivables).toEqual({ total: 150.5, byAge: [{ daysOverdue: "1 - 30", amount: 100 }, { daysOverdue: "31 - 60", amount: 50.5 }] });
+    expect(res.json.payables.total).toBe(0);
+  });
+
+  it("vat_registration_limit reports percent and remaining amount", async () => {
+    const { call } = await connect(() =>
+      ok({ DateFrom: "2026-01-01", DateTo: "2026-11-09", TotalSaleHc: 1500000, VatPayerLimit: 2000000, VatPayerLimitImmediately: 2536500 }),
+    );
+    const res = await call("get_business_stats", { report: "vat_registration_limit" });
+    expect(res.json).toMatchObject({ sales: 1500000, limit: 2000000, percentOfLimit: 75, remainingToLimit: 500000 });
+  });
+
+  it("vat rejects a yearly period", async () => {
+    const { call } = await connect(() => ok({}));
+    expect((await call("get_business_stats", { report: "vat", period: "year" })).isError).toBe(true);
+  });
+
+  it("get_top_partners picks the right endpoint", async () => {
+    const { call, apiCalls } = await connect(() => ok([{ Name: "ACME s.r.o.", PartnerContactId: 3, TotalWithVatHc: 1234.567 }]));
+    const res = await call("get_top_partners", { kind: "debtors", count: 5 });
+    expect(apiCalls()[0].url.pathname).toBe("/v3/Statistics/TopDebtors");
+    expect(apiCalls()[0].url.searchParams.get("count")).toBe("5");
+    expect(res.json).toEqual([{ contactId: 3, name: "ACME s.r.o.", amount: 1234.57 }]);
+  });
+});
+
+describe("reminder tools", () => {
+  it("send_payment_reminder posts to the reminders endpoint", async () => {
+    const { call, apiCalls } = await connect(() => ok({ Sent: ["ap@globex.com"], NotSent: [] }), false);
+    const res = await call("send_payment_reminder", { id: 101, language: "en" });
+    expect(apiCalls()[0].url.pathname).toBe("/v3/Mails/Reminders/Send");
+    expect(apiCalls()[0].body).toMatchObject({ DocumentId: 101, DocumentType: 0, SendToPartner: true, SendToSelf: false, ReportLanguage: 3 });
+    expect(res.json.sent).toEqual(["ap@globex.com"]);
+  });
+
+  it("send_payment_confirmation finds the latest payment of the document", async () => {
+    const { call, apiCalls } = await connect((c) => (c.method === "GET" ? page([{ Id: 900 }]) : ok(true)), false);
+    const res = await call("send_payment_confirmation", { documentId: 103 });
+    expect(apiCalls()[0].url.searchParams.get("filter")).toBe("(InvoiceId~eq~103)");
+    expect(apiCalls()[1].url.pathname).toBe("/v3/Mails/IssuedDocumentPayments/SendConfirmation/900");
+    expect(res.json).toEqual({ documentId: 103, paymentId: 900, sent: true });
+  });
+
+  it("send_payment_confirmation explains when there is no payment", async () => {
+    const { call, apiCalls } = await connect(() => page([]), false);
+    const res = await call("send_payment_confirmation", { documentId: 101 });
+    expect(res.isError).toBe(true);
+    expect(res.text).toMatch(/no recorded payment/);
+    expect(apiCalls().some((c) => c.method === "POST")).toBe(false);
   });
 });
 

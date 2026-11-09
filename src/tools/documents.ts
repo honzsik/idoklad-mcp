@@ -159,6 +159,73 @@ export function registerDocumentTools(ctx: ToolContext) {
       }),
   );
 
+  server.registerTool(
+    "send_payment_reminder",
+    {
+      title: "Send payment reminder",
+      description:
+        "Email an overdue payment reminder (upomínka) for an unpaid issued invoice or proforma, using the reminder template from iDoklad settings. " +
+        "This sends a real email; confirm the invoices and recipients with the user first. To remind several customers, call it once per invoice.",
+      inputSchema: z.object({
+        documentType: z.enum(["issued_invoice", "proforma_invoice"]).default("issued_invoice"),
+        id: z.number().int().describe("Document ID (not the document number)."),
+        sendToPartner: z.boolean().default(true).describe("Send to the email on the customer's contact."),
+        otherRecipients: z.array(z.string().email()).max(5).optional().describe("Extra recipients."),
+        sendToSelf: z.boolean().default(false).describe("Send a copy to your company email."),
+        sendToAccountant: z.boolean().default(false),
+        subject: z.string().optional().describe("Custom subject. Default: iDoklad reminder template."),
+        body: z.string().optional().describe("Custom body. Default: iDoklad reminder template."),
+        language: z.enum(["cs", "sk", "en", "de"]).optional(),
+      }),
+      annotations: { ...WRITE, destructiveHint: true },
+    },
+    (args) =>
+      run(async () => {
+        const result = await client.post<{ Sent?: string[]; NotSent?: string[] }>("Mails/Reminders/Send", {
+          DocumentId: args.id,
+          DocumentType: args.documentType === "issued_invoice" ? 0 : 1,
+          SendToPartner: args.sendToPartner,
+          SendToSelf: args.sendToSelf,
+          SendToAccountant: args.sendToAccountant,
+          OtherRecipients: args.otherRecipients,
+          EmailSubject: args.subject,
+          EmailBody: args.body,
+          ReportLanguage: args.language ? REPORT_LANGUAGE[args.language] : undefined,
+        });
+        return { id: args.id, sent: result.Sent ?? [], notSent: result.NotSent ?? [] };
+      }),
+  );
+
+  server.registerTool(
+    "send_payment_confirmation",
+    {
+      title: "Send payment confirmation",
+      description:
+        "Email the customer a confirmation that their payment for an issued invoice or proforma was received (potvrzení o přijetí platby). " +
+        "Uses the latest payment recorded on the document unless paymentId is given. This sends a real email; confirm with the user first.",
+      inputSchema: z.object({
+        documentId: z.number().int().describe("ID of the paid issued invoice or proforma."),
+        paymentId: z.number().int().optional().describe("A specific payment. Default: the document's latest payment."),
+      }),
+      annotations: { ...WRITE, destructiveHint: true },
+    },
+    (args) =>
+      run(async () => {
+        let paymentId = args.paymentId;
+        if (paymentId === undefined) {
+          const payments = await client.get<Page<{ Id: number; DateOfPayment?: string }>>("IssuedDocumentPayments", {
+            filter: buildFilter([{ field: "InvoiceId", op: "eq", value: args.documentId }]),
+            sort: "Id~desc",
+            pagesize: 1,
+          });
+          paymentId = payments.Items[0]?.Id;
+          if (paymentId === undefined) throw new Error(`Document ${args.documentId} has no recorded payment. Record the payment first (mark_document_paid).`);
+        }
+        await client.post(`Mails/IssuedDocumentPayments/SendConfirmation/${paymentId}`);
+        return { documentId: args.documentId, paymentId, sent: true };
+      }),
+  );
+
   const payable = DOC_TYPE_KEYS.filter((k) => "payments" in DOC_TYPES[k]) as [DocTypeKey, ...DocTypeKey[]];
 
   server.registerTool(

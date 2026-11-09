@@ -38,6 +38,13 @@ if (received?.documents?.[0]) await check("get_received_invoice", { id: received
 const contacts = await check("list_contacts", { pageSize: 2 });
 if (contacts?.contacts?.[0]) await check("get_contact", { id: contacts.contacts[0].id });
 await check("list_price_list_items", { pageSize: 2 });
+for (const report of ["revenue_by_period", "year_comparison", "overdue_aging", "vat", "vat_registration_limit", "document_counts"]) {
+  await check("get_business_stats", { report });
+}
+await check("get_business_stats", { report: "revenue_by_period", period: "quarter", periods: 2 });
+const debtors = await check("get_top_partners", { kind: "debtors", count: 3 });
+await check("get_top_partners", { kind: "customers", count: 3 });
+if (debtors?.[0]) await check("get_contact_stats", { contactId: debtors[0].contactId });
 for (const codebook of ["currencies", "vat_rates", "payment_options", "bank_accounts"]) await check("get_codebook", { codebook });
 await check("search_api_docs", { query: "bank statement", limit: 2 });
 await check("idoklad_api_request", { method: "GET", path: "BankStatements", query: { pagesize: 1 } });

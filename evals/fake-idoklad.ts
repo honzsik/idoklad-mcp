@@ -45,6 +45,39 @@ export const DATA = {
   received: [doc({ id: 401, number: "PF20260007", partnerId: 6, issued: "2026-11-01", due: "2026-11-15", status: 0, currency: 1, total: 1210, description: "Hosting November", items: [item("Hosting", 1, 1000)] })],
 };
 
+const month = (n: number, period: string, total: number, unpaid = 0) => ({ NumericPeriod: n, Period: period, TotalWithVat: total, TotalWithoutVat: total, TotalPaid: total - unpaid, TotalUnpaid: unpaid });
+
+// Statistics/* answers, keyed by endpoint. Globex (4) owes the 20260018 invoice; ACME (3) is the biggest customer.
+const STATS: Record<string, unknown> = {
+  InvoicingForPeriod: {
+    IssuedInvoices: [month(202609, "Sep", 63750), month(202610, "Oct", 48552, 28552), month(202611, "Nov", 0)],
+    ReceivedInvoices: [month(202609, "Sep", 1210), month(202610, "Oct", 1210), month(202611, "Nov", 1210, 1210)],
+  },
+  InvoicingForYear: {
+    IssuedInvoices: { Paid: 820000, TotalWithVat: 870000, WithoutVat: 870000 },
+    ReceivedInvoices: { Paid: 140000, TotalWithVat: 141210, WithoutVat: 116700 },
+  },
+  DebtIntervals: {
+    Issue: [
+      { Interval: 30, IntervalDescription: "1 - 30", TotalDebt: 28552 },
+      { Interval: 60, IntervalDescription: "31 - 60", TotalDebt: 0 },
+      { Interval: 90, IntervalDescription: "61 - 90", TotalDebt: 0 },
+      { Interval: 999, IntervalDescription: "90+", TotalDebt: 0 },
+    ],
+    Entry: [{ Interval: 30, IntervalDescription: "1 - 30", TotalDebt: 0 }],
+  },
+  TopDebtors: [{ Name: "Globex Corporation", PartnerContactId: 4, TotalWithVatHc: 28552 }],
+  TopPartners: [
+    { Name: "ACME s.r.o.", PartnerContactId: 3, TotalWithVatHc: 512000 },
+    { Name: "Globex Corporation", PartnerContactId: 4, TotalWithVatHc: 298000 },
+    { Name: "Alfa a.s.", PartnerContactId: 5, TotalWithVatHc: 60500 },
+  ],
+  StatisticForContact: { IssuedInvoiceTotalWithVat: 298000, IssuedInvoiceCount: 9, IssuedInvoicePaidCount: 7, IssuedInvoiceUnpaidCount: 2, IssuedInvoiceAfterMaturityCount: 3 },
+  VatTotals: { VatOutThisPeriod: 0, VatInThisPeriod: 0, DifferenceThisPeriod: 0, VatOutLastPeriod: 0, VatInLastPeriod: 0, DifferenceLastPeriod: 0 },
+  VatPayerProgress: { DateFrom: "2026-01-01", DateTo: "2026-11-09", TotalSaleHc: 870000, VatPayerLimit: 2000000, VatPayerLimitImmediately: 2536500 },
+  AgendaSummary: { IssuedInvoices: 4, ProformaInvoices: 2, CreditNotes: 1, ReceivedInvoices: 1, Contacts: 4 },
+};
+
 const draft = (from?: Record<string, unknown>) => ({
   DateOfIssue: "2026-11-09",
   DateOfMaturity: "2026-11-23",
@@ -98,6 +131,12 @@ function route(c: Call) {
     if (root === "VatRates") return page([{ Id: 1, Name: "Základní sazba 21%", Rate: 21, RateType: 1, DateValidityTo: "9999-12-31" }, { Id: 2, Name: "Snížená sazba 12%", Rate: 12, RateType: 0, DateValidityTo: "9999-12-31" }]);
     if (root === "PaymentOptions") return page([{ Id: 1, Name: "Bank transfer", IsDefault: true }, { Id: 3, Name: "Cash" }]);
     if (root === "PriceListItems") return page(applyFilter([{ Id: 501, Name: "Grafický návrh webové prezentace", Code: "WEB", Price: 5000, PriceType: 1, CurrencyId: 1 }], filter));
+    if (root === "Statistics") return ok(STATS[a] ?? {});
+    if (root === "IssuedDocumentPayments") {
+      const docId = Number(/InvoiceId~eq~(\d+)/.exec(filter ?? "")?.[1]);
+      const paid = [...DATA.issued, ...DATA.proforma].filter((d) => d.PaymentStatus === 1 && (!docId || d.Id === docId));
+      return page(paid.map((d, i) => ({ Id: 900 + i, InvoiceId: d.Id, InvoiceDocumentNumber: d.DocumentNumber, DateOfPayment: d.DateOfMaturity })));
+    }
     if (root === "BankStatements") return page([{ Id: 601, DocumentNumber: "BV20260011", DateOfPayment: "2026-11-03", Amount: 18150, Description: "Platba 20260017" }]);
     if (root === "Contacts") {
       if (a === "Default") return ok({ CountryId: 2, CompanyName: "" });

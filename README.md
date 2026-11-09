@@ -11,7 +11,7 @@ It lets Claude, Codex, Cursor and other AI assistants read and create invoices i
 > 🇨🇿 [Návod v češtině](#česky)
 
 > [!WARNING]
-> **Early development (v0.3).** Tools and their inputs may still change. See the [roadmap](#roadmap).
+> **Early development (v0.4).** Tools and their inputs may still change. See the [roadmap](#roadmap).
 
 ## What you can ask
 
@@ -19,9 +19,12 @@ It lets Claude, Codex, Cursor and other AI assistants read and create invoices i
 - *"How much has ACME paid us this year?"*
 - *"Download the PDF of the last invoice for Globex."*
 - *"Which received invoices haven't we paid yet?"*
+- *"Kdo mi dluží nejvíc?"* / *"Jak se mi letos daří oproti loňsku?"*
+- *"Kolik mi zbývá do povinné registrace k DPH?"*
 - *"Create an invoice for ACME s.r.o.: 10 hours of consulting at 1,500 CZK, due in 14 days."* (needs [write mode](#read-only-by-default))
 - *"Invoice Globex like last month, but for 42 hours."* (copies currency, VAT and language from the previous invoice)
 - *"Mark invoice 20260018 as paid today."*
+- *"Send payment reminders for all overdue invoices."*
 - *"Issue a credit note for invoice 20260015, the client returned 2 of the 10 licences."*
 
 ## Requirements
@@ -176,6 +179,16 @@ Write tools are marked as such, so clients can ask you to confirm before running
 | `mark_document_paid` | write | Record full payment of an invoice, proforma or received invoice. |
 | `mark_document_unpaid` | write | Remove payments, so the document is unpaid again. |
 | `send_document_email` | write | Email an invoice, proforma or credit note through iDoklad, using your iDoklad email template. |
+| `send_payment_reminder` | write | Email an overdue payment reminder (upomínka) using your iDoklad reminder template. |
+| `send_payment_confirmation` | write | Email a customer a confirmation that their payment arrived. |
+
+**Business overview**
+
+| Tool | Mode | What it does |
+| --- | --- | --- |
+| `get_business_stats` | read | Income and costs by month, quarter or year, this year against last year, overdue amounts by age, VAT for the period, progress toward the VAT registration limit, and document counts. |
+| `get_top_partners` | read | Biggest customers, or biggest debtors. |
+| `get_contact_stats` | read | How a customer pays: invoices, paid, unpaid and late. |
 
 **Contacts and price list**
 
@@ -220,6 +233,11 @@ Write tools are marked as such, so clients can ask you to confirm before running
 - [x] PDF download and sending documents by email
 - [x] Generic tools: call any iDoklad endpoint, search the API docs
 - [x] Create proforma invoices and credit notes, and invoices from paid proformas
+- [x] Business overview: revenue, debtors, VAT, VAT registration limit
+- [x] Payment reminders and payment confirmations
+- [ ] Partial payments
+- [ ] Supplier invoices from a PDF (iDoklad inbox)
+- [ ] Bank matching, editing and deleting documents, recurring invoices
 - [x] One-click install for Claude Desktop, and a listing in the MCP Registry
 - [ ] Hosted version with iDoklad login (OAuth) for claude.ai and ChatGPT
 

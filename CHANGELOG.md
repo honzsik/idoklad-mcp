@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0 (2026-11-09)
+
+- `get_business_stats`: income and costs by month, quarter or year; this year against last year; overdue amounts by age; VAT for the period; progress toward the VAT registration limit; document counts.
+- `get_top_partners`: biggest customers or biggest debtors. `get_contact_stats`: how a customer pays.
+- `send_payment_reminder`: overdue payment reminders using the iDoklad reminder template.
+- `send_payment_confirmation`: confirm to a customer that their payment arrived.
+- Evals: 9 new cases (39 in total).
+
 ## 0.3.0 (2026-11-09)
 
 - `create_proforma_invoice`: create proforma invoices, from defaults or copied from an earlier proforma.

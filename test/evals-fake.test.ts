@@ -42,7 +42,18 @@ describe("eval fake iDoklad", () => {
     expect(ids(await call("list_received_invoices", { status: "unpaid" }))).toEqual([401]);
   });
 
+  it("answers the statistics the overview cases ask for", async () => {
+    const call = await connect();
+    expect((await call("get_top_partners", { kind: "debtors" }))[0].contactId).toBe(4);
+    expect((await call("get_top_partners", { kind: "customers" }))[0].contactId).toBe(3);
+    expect((await call("get_business_stats", { report: "vat_registration_limit" })).percentOfLimit).toBe(43.5);
+    expect((await call("get_business_stats", { report: "revenue_by_period", periods: 3 })).rows).toHaveLength(3);
+    expect((await call("get_contact_stats", { contactId: 4 })).unpaid).toBe(2);
+  });
+
   it("accepts every write the cases expect", async () => {
+    await (await connect())("send_payment_reminder", { id: 101 });
+    expect((await (await connect())("send_payment_confirmation", { documentId: 201 })).paymentId).toBeGreaterThan(0);
     const call = await connect();
     await call("create_issued_invoice", { partnerId: 4, copyFromId: 102, items: [{ name: "Dev", unitPrice: 41.24, amount: 42 }] });
     await call("create_credit_note", { invoiceId: 104, reason: "Returned", items: [{ name: "Licence", unitPrice: 2000, amount: 2 }] });
